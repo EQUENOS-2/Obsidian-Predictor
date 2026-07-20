@@ -5,10 +5,8 @@ from itertools import product
 from math import ceil, log
 from tkinter import filedialog
 
-import nbtlib
 import numpy as np
-from litemapy import BlockState
-from nbtlib import LongArray
+from nbtlib import Compound, File, LongArray
 
 WATER: str = "minecraft:water"
 LAVA: str = "minecraft:lava"
@@ -65,12 +63,36 @@ class Color(IntEnum):
     WHITE = 15
 
 
+class BlockState:
+    __slots__ = ("_block_id", "properties")
+
+    def __init__(self, block_id: str, properties: dict[str, str]):
+        self._block_id: str = block_id
+        self.properties: dict[str, str] = properties
+
+    @staticmethod
+    def from_nbt(nbt: Compound) -> "BlockState":
+        block_id = str(nbt["Name"])
+        if "Properties" in nbt:
+            properties: dict[str, str] = {
+                str(k): str(v) for k, v in nbt["Properties"].items()
+            }
+        else:
+            properties: dict[str, str] = {}
+        block = BlockState(block_id, properties)
+        return block
+
+    @property
+    def id(self) -> str:
+        return self._block_id
+
+
 def get_level(block: BlockState) -> int:
-    return int(dict(block.properties())["level"])
+    return int(block.properties["level"])
 
 
 def is_blast_resistant(block: BlockState) -> bool:
-    if dict(block.properties()).get("waterlogged") == "true":
+    if block.properties.get("waterlogged") == "true":
         return block.id not in FRAGILE_BLOCKS
     return block.id in TOUGH_BLOCKS
 
@@ -153,12 +175,12 @@ class RegionProxy:
 
     @staticmethod
     def from_file(path: str) -> "RegionProxy":
-        schem = nbtlib.File.load(path, True)
+        schem = File.load(path, True)
         nbt = next(iter(schem["Regions"].values()))
 
         palette: list[BlockState] = []
         for block_nbt in nbt["BlockStatePalette"]:
-            block = BlockState.from_nbt(block_nbt)  # type: ignore
+            block = BlockState.from_nbt(block_nbt)
             palette.append(block)
 
         nbits = max(ceil(log(len(palette), 2)), 2)
