@@ -364,7 +364,10 @@ def main() -> None:
     predictor = ObsidianPredictor(x0, y0, z0, region)
     print(f"Removing layers from '{path}' and simulating liquids...")
     predictor.run()
-    predictor.save_waypoints("waypoints.txt")  # mw$default_1.txt
+    # slightly goofy name parsing but whatever
+    filename = path.rsplit("/", maxsplit=1)[-1].rsplit("\\", maxsplit=1)[-1]
+    name = filename.rsplit(".", maxsplit=1)[0]
+    predictor.save_waypoints(f"{name} waypoints.txt")  # mw$default_1.txt
 
 
 if __name__ == "__main__":

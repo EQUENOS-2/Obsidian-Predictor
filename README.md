@@ -4,7 +4,7 @@ A python script for TMC players that predicts possible obsidian formations in a 
 ## Why
 But world eaters have AND-gates! What's the point of this script if I can just fix my WE as soon as it gets stuck?
 
-If you're making a large perimeter in an ocean, kelp can really ruin your day. Even if you're using a kelp-proof WE, if just one sweeper gets stuck it's no longer kelp-proof. In modern versions (1.21.5+) each loaded chunk random-ticks, so when you log on to finally fix the sweeper, you may witness the entire layer flooded from multiple kelp growths that occured. Therefore, you really **don't want** you world eater to stop until it removes all oceans. In order to guarantee that, this script might be very handy.
+If you're making a large perimeter in an ocean, kelp can really ruin your day. Even if you're using a kelp-proof WE, if just one sweeper gets stuck it's no longer kelp-proof. In modern versions (1.21.5+) each loaded chunk random-ticks, so when you log on to finally fix the sweeper, you may witness the entire layer flooded from multiple kelp growths that occured. Therefore, you really **don't want** your world eater to stop until it removes all oceans. In order to guarantee that, this script might be very handy.
 
 ## How to use
 1. Download [obi_predict.py](obi_predict.py) and [airlike_blocks.json](airlike_blocks.json) and place them in the same directory. Launching the script requires **Python 3.9+** and the `litemapy` library, which can be installed by running `pip install litemapy` in command prompt.
