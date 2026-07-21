@@ -52,6 +52,8 @@ AIRLIKE: set[str]
 with open(resource_path("airlike_blocks.json"), "r") as fp:
     AIRLIKE = set(json.load(fp))
 
+FLOW_STOPPERS: set[str] = AIRLIKE | {WATER}
+
 
 class Color(IntEnum):
     BLACK = 0
@@ -104,6 +106,14 @@ def is_blast_resistant(block: BlockState) -> bool:
     if block.properties.get("waterlogged") == "true":
         return block.id not in FRAGILE_BLOCKS
     return block.id in TOUGH_BLOCKS
+
+
+def is_water_source(block: BlockState) -> bool:
+    return (
+        block.id == WATER
+        and get_level(block) == 0
+        or block.properties.get("waterlogged") == "true"
+    )
 
 
 def format_waypoint(
@@ -238,7 +248,7 @@ class ObsidianPredictor:
             next_level = (water_level + 1) % 8
             # water flows sideways only if it has a supporting block or it is a source
             if y > 0 and (
-                water_level == 0 or self.region[x, y - 1, z].id not in AIRLIKE | {WATER}
+                water_level == 0 or self.region[x, y - 1, z].id not in FLOW_STOPPERS
             ):
                 to_process.append((x + 1, z, next_level))
                 to_process.append((x - 1, z, next_level))
@@ -289,7 +299,7 @@ class ObsidianPredictor:
 
         for x, z in product(range(self.size_x), range(self.size_z)):
             block = self.region[x, y, z]
-            if block.id == WATER and get_level(block) == 0:
+            if is_water_source(block):
                 # we will inflate this as if the eater destroyed all surroundings
                 sources.add((x, y, z))
             elif block.id in AIRLIKE and self.layer_matrix[x, z] < 9:
@@ -302,8 +312,10 @@ class ObsidianPredictor:
             ):
                 # mark lava if it has (simulated) water directly above
                 self.try_place_marker(x, y, z)
-            elif is_blast_resistant(block):
+            # bonus check
+            if is_blast_resistant(block):
                 self.blast_resistant_markers.add((x, y, z))
+            # we should flush all values before simulating this layer
             self.layer_matrix[x, z] = 9
         # layer_matrix is flushed; simulate water
         for x, y, z in sources:
