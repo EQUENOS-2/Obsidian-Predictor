@@ -284,14 +284,14 @@ class ObsidianPredictor:
         """Inflates all water sources at the given y level,
         processes downwards flow from previous layers, marks flooded lava sources,
         scans for blast resistant blocks."""
-        sources = []
+        sources = set()
         flows = []
 
         for x, z in product(range(self.size_x), range(self.size_z)):
             block = self.region[x, y, z]
             if block.id == WATER and get_level(block) == 0:
                 # we will inflate this as if the eater destroyed all surroundings
-                sources.append((x, y, z))
+                sources.add((x, y, z))
             elif block.id in AIRLIKE and self.layer_matrix[x, z] < 9:
                 # we will inherit the flow from directly above
                 flows.append((x, y, z))
@@ -307,7 +307,16 @@ class ObsidianPredictor:
             self.layer_matrix[x, z] = 9
         # layer_matrix is flushed; simulate water
         for x, y, z in sources:
+            # small optimization to process oceans faster
+            if all(
+                (x + dx, y, z + dz) in sources
+                for dx, dz in ((1, 0), (-1, 0), (0, 1), (0, -1))
+            ):
+                self.layer_matrix[x, z] = 0
+                continue
+            # if we're here, it's not an inner water source
             self.simulate_water(x, y, z, 0, check_collisions=False)
+
         for x, y, z in flows:
             self.simulate_water(x, y, z, 8, check_collisions=True)
         # reset lava groups
