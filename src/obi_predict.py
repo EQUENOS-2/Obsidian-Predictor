@@ -1,11 +1,21 @@
 import json
+import sys
 from collections import deque
 from enum import IntEnum
 from itertools import product
 from math import ceil, log
+from os.path import abspath
+from os.path import join as path_join
 
 import numpy as np
 from nbtlib import Compound, File, LongArray
+
+
+def resource_path(filename: str) -> str:
+    if hasattr(sys, "_MEIPASS"):
+        return path_join(sys._MEIPASS, filename)  # type: ignore
+    return path_join(abspath("."), filename)
+
 
 WATER: str = "minecraft:water"
 LAVA: str = "minecraft:lava"
@@ -39,7 +49,7 @@ FRAGILE_BLOCKS: set[str] = {
 
 AIRLIKE: set[str]
 
-with open("airlike_blocks.json", "r") as fp:
+with open(resource_path("airlike_blocks.json"), "r") as fp:
     AIRLIKE = set(json.load(fp))
 
 
