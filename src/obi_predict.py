@@ -3,7 +3,6 @@ from collections import deque
 from enum import IntEnum
 from itertools import product
 from math import ceil, log
-from tkinter import filedialog
 
 import numpy as np
 from nbtlib import Compound, File, LongArray
@@ -95,17 +94,6 @@ def is_blast_resistant(block: BlockState) -> bool:
     if block.properties.get("waterlogged") == "true":
         return block.id not in FRAGILE_BLOCKS
     return block.id in TOUGH_BLOCKS
-
-
-def parse_area_origin(path: str) -> tuple[int, int, int]:
-    try:
-        filename = path.rsplit("/", maxsplit=1)[-1].rsplit("\\", maxsplit=1)[-1]
-        name = filename.rsplit(".", maxsplit=1)[0]
-        return tuple(map(int, name.split()[-3:]))  # type: ignore
-    except Exception:
-        return tuple(
-            map(int, input("Input Corner 1 of your area selection: ").split())
-        )  # type: ignore
 
 
 def format_waypoint(
@@ -209,8 +197,7 @@ class ObsidianPredictor:
         self.layer_matrix: np.ndarray = np.full(
             (self.size_x, self.size_z), 9, dtype=np.int16
         )
-        self.upper_marked_lava: set[tuple[int, int]] = set()
-        self.lower_marked_lava: set[tuple[int, int]] = set()
+        self.marked_lava: set[tuple[int, int]] = set()
         self.blast_resistant_markers: set[tuple[int, int, int]] = set()
         self.markers: list[tuple[int, int, int]] = []
 
@@ -278,9 +265,9 @@ class ObsidianPredictor:
     def try_place_marker(self, x: int, y: int, z: int) -> None:
         """Checks whether a lava source belongs to a group.
         If not, places a marker and saves a new group."""
-        if (x, z) in self.upper_marked_lava:
+        if (x, z) in self.marked_lava:
             return
-        self.mark_lava_component(x, y, z, self.upper_marked_lava)
+        self.mark_lava_component(x, y, z, self.marked_lava)
         self.markers.append((x, y, z))
 
     def process_layer(self, y: int) -> None:
@@ -313,6 +300,8 @@ class ObsidianPredictor:
             self.simulate_water(x, y, z, 0, check_collisions=False)
         for x, y, z in flows:
             self.simulate_water(x, y, z, 8, check_collisions=True)
+        # reset lava groups
+        self.marked_lava.clear()
 
     def group_waypoints(
         self, center: tuple[int, int, int]
@@ -372,25 +361,3 @@ class ObsidianPredictor:
         for y in range(self.size_y - 1, -1, -1):
             print(f"{(self.size_y - y) / self.size_y * 100:.2f} %")
             self.process_layer(y)
-            self.upper_marked_lava.clear()
-
-
-def main() -> None:
-    path = filedialog.askopenfilename(filetypes=[("Litematica", "*.litematic")])
-    if not path:
-        return print("Terminating...")
-
-    region = RegionProxy.from_file(path)
-    x0, y0, z0 = parse_area_origin(path)
-
-    predictor = ObsidianPredictor(x0, y0, z0, region)
-    print(f"Removing layers from '{path}' and simulating liquids...")
-    predictor.run()
-    # slightly goofy name parsing but whatever
-    filename = path.rsplit("/", maxsplit=1)[-1].rsplit("\\", maxsplit=1)[-1]
-    name = filename.rsplit(".", maxsplit=1)[0]
-    predictor.save_waypoints(f"{name} waypoints.txt")  # mw$default_1.txt
-
-
-if __name__ == "__main__":
-    main()
