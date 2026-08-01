@@ -52,8 +52,6 @@ AIRLIKE: set[str]
 with open(resource_path("airlike_blocks.json"), "r") as fp:
     AIRLIKE = set(json.load(fp))
 
-FLOW_STOPPERS: set[str] = AIRLIKE | {WATER}
-
 
 class Color(IntEnum):
     BLACK = 0
@@ -116,12 +114,29 @@ def is_water_source(block: BlockState) -> bool:
     )
 
 
+def attracts_vertical_flow(block: BlockState) -> bool:
+    return (
+        block.id == WATER
+        or block.id in AIRLIKE
+        # ideally I should check that it's not something like copper grate but I don't care
+        or block.properties.get("waterlogged") == "true"
+    )
+
+
 def format_waypoint(
     x: int, y: int, z: int, color: Color, name: str, short_name: str | None = None
 ) -> str:
     if short_name is None:
         short_name = name[:2]
-    return f"waypoint:{name}:{short_name.upper()}:{x}:{y}:{z}:{color}:false:0:gui.xaero_default:false:0:0:false"
+    return f"waypoint:{name}:{short_name}:{x}:{y}:{z}:{color}:false:0:gui.xaero_default:false:0:0:true"
+
+
+def is_isolated(point: tuple[int, int], points: list[tuple[int, int]]) -> bool:
+    x0, z0 = point
+    for x, z in points:
+        if abs(x - x0) + abs(z - z0) < 8:
+            return False
+    return True
 
 
 class LitematicaBitArrayProxy:
@@ -217,9 +232,11 @@ class ObsidianPredictor:
         self.layer_matrix: np.ndarray = np.full(
             (self.size_x, self.size_z), 9, dtype=np.int16
         )
-        self.marked_lava: set[tuple[int, int]] = set()
+        self.flooded_lava: set[tuple[int, int]] = set()
+        self.focused_flooded_lava: set[tuple[int, int]] = set()
+
         self.blast_resistant_markers: set[tuple[int, int, int]] = set()
-        self.markers: list[tuple[int, int, int]] = []
+        self.lava_markers: list[tuple[int, int, int]] = []
 
     def to_world_coorinates(self, x: int, y: int, z: int) -> tuple[int, int, int]:
         return self.origin_x + x, self.origin_y + y, self.origin_z + z
@@ -230,6 +247,7 @@ class ObsidianPredictor:
         to_process = deque()
         to_process.append((x, z, water_level))
         terminal_water_level = 7
+        found_lava = False
 
         while to_process:
             x, z, water_level = to_process.popleft()
@@ -243,13 +261,12 @@ class ObsidianPredictor:
 
             self.layer_matrix[x, z] = water_level
             # this is needed to stop propagation
-            if water_level == terminal_water_level:
+            if water_level == terminal_water_level or y <= 0:
                 continue
             next_level = (water_level + 1) % 8
-            # water flows sideways only if it has a supporting block or it is a source
-            if y > 0 and (
-                water_level == 0 or self.region[x, y - 1, z].id not in FLOW_STOPPERS
-            ):
+            block_below = self.region[x, y - 1, z]
+            # check that water can flow sideways
+            if water_level == 0 or not attracts_vertical_flow(block_below):
                 to_process.append((x + 1, z, next_level))
                 to_process.append((x - 1, z, next_level))
                 to_process.append((x, z + 1, next_level))
@@ -258,37 +275,43 @@ class ObsidianPredictor:
                 # It is sufficient to stop processing for water of higher level than this.
                 # This is the level at which the given stream encountered a height drop.
                 terminal_water_level = water_level
-
-    def mark_lava_component(
-        self, x: int, y: int, z: int, cache: set[tuple[int, int]]
-    ) -> None:
-        """Marks all adjacent lava sources at the given y-level"""
-        to_process = deque()
-        to_process.append((x, z))
-
-        while to_process:
-            x, z = to_process.popleft()
+            # update lava marker data
             if (
-                (x, z) in cache
-                or not (0 <= x < self.size_x)
-                or not (0 <= z < self.size_z)
+                block_below.id == LAVA
+                and get_level(block_below) == 0
+                and (x, z) not in self.flooded_lava
             ):
-                continue
-            block = self.region[x, y, z]
-            if block.id == LAVA and get_level(block) == 0:
-                cache.add((x, z))
-                to_process.append((x + 1, z))
-                to_process.append((x - 1, z))
-                to_process.append((x, z + 1))
-                to_process.append((x, z - 1))
+                self.flooded_lava.add((x, z))
+                if not found_lava:
+                    found_lava = True
+                    self.focused_flooded_lava.add((x, z))
 
-    def try_place_marker(self, x: int, y: int, z: int) -> None:
-        """Checks whether a lava source belongs to a group.
-        If not, places a marker and saves a new group."""
-        if (x, z) in self.marked_lava:
-            return
-        self.mark_lava_component(x, y, z, self.marked_lava)
-        self.markers.append((x, y, z))
+    def resolve_lava_markers(self, y: int) -> None:
+        """Unites `.flooded_lava` into path-connected componentsand distributes markers on them.
+        Flushes `.flooded_lava` and `.focused_flooded_lava` after being invoked."""
+        while self.flooded_lava:
+            markers: list[tuple[int, int]] = []
+            initial_lava = self.flooded_lava.pop()
+            to_process = deque()
+            to_process.append(initial_lava)
+            # exhaust the connected component
+            while to_process:
+                x, z = to_process.popleft()
+                for point in ((x + 1, z), (x - 1, z), (x, z + 1), (x, z - 1)):
+                    if point in self.flooded_lava:
+                        to_process.append(point)
+                        self.flooded_lava.remove(point)
+                    if point in self.focused_flooded_lava and is_isolated(
+                        point, markers
+                    ):
+                        markers.append(point)
+            # decide which markers to use
+            if not markers:
+                markers.append(initial_lava)
+            for x, z in markers:
+                self.lava_markers.append((x, y, z))
+
+        self.focused_flooded_lava.clear()
 
     def process_layer(self, y: int) -> None:
         """Inflates all water sources at the given y level,
@@ -305,13 +328,6 @@ class ObsidianPredictor:
             elif block.id in AIRLIKE and self.layer_matrix[x, z] < 9:
                 # we will inherit the flow from directly above
                 flows.append((x, y, z))
-            elif (
-                block.id == LAVA
-                and self.layer_matrix[x, z] < 9
-                and get_level(block) == 0
-            ):
-                # mark lava if it has (simulated) water directly above
-                self.try_place_marker(x, y, z)
             # bonus check
             if is_blast_resistant(block):
                 self.blast_resistant_markers.add((x, y, z))
@@ -331,8 +347,9 @@ class ObsidianPredictor:
 
         for x, y, z in flows:
             self.simulate_water(x, y, z, 8, check_collisions=True)
-        # reset lava groups
-        self.marked_lava.clear()
+
+        # this also resets lava layer data
+        self.resolve_lava_markers(y - 1)
 
     def group_waypoints(
         self, center: tuple[int, int, int]
@@ -378,14 +395,14 @@ class ObsidianPredictor:
         blastres_markers = self.get_blast_resistant_markers()
 
         with open(path, "w") as fp:
-            for x, y, z in self.markers:
+            for x, y, z in self.lava_markers:
                 fp.write(
-                    f"{format_waypoint(*self.to_world_coorinates(x, y, z), Color.RED, 'X')}\n"
+                    f"{format_waypoint(*self.to_world_coorinates(x, y, z), Color.RED, 'x')}\n"
                 )
 
             for x, y, z in blastres_markers:
                 fp.write(
-                    f"{format_waypoint(*self.to_world_coorinates(x, y, z), Color.BLACK, 'X')}\n"
+                    f"{format_waypoint(*self.to_world_coorinates(x, y, z), Color.BLACK, 'x')}\n"
                 )
 
     def run(self) -> None:
