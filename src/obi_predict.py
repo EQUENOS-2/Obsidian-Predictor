@@ -19,6 +19,7 @@ def resource_path(filename: str) -> str:
 
 WATER: str = "minecraft:water"
 LAVA: str = "minecraft:lava"
+BUBBLE_COLUMN: str = "minecraft:bubble_column"
 
 TOUGH_BLOCKS: set[str] = {
     "minecraft:obsidian",
@@ -111,6 +112,7 @@ def is_water_source(block: BlockState) -> bool:
         block.id == WATER
         and get_level(block) == 0
         or block.properties.get("waterlogged") == "true"
+        or block.id == BUBBLE_COLUMN
     )
 
 
@@ -120,7 +122,7 @@ def is_lava_source(block: BlockState) -> bool:
 
 def attracts_vertical_flow(block: BlockState) -> bool:
     return (
-        block.id == WATER
+        block.id in (WATER, BUBBLE_COLUMN)
         or block.id in AIRLIKE
         # ideally I should check that it's not something like copper grate but I don't care
         or block.properties.get("waterlogged") == "true"
