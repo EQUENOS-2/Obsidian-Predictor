@@ -74,10 +74,10 @@ class Color(IntEnum):
 
 
 class BlockState:
-    __slots__ = ("_block_id", "properties")
+    __slots__ = ("id", "properties")
 
     def __init__(self, block_id: str, properties: dict[str, str]):
-        self._block_id: str = block_id
+        self.id: str = block_id
         self.properties: dict[str, str] = properties
 
     @staticmethod
@@ -91,10 +91,6 @@ class BlockState:
             properties: dict[str, str] = {}
         block = BlockState(block_id, properties)
         return block
-
-    @property
-    def id(self) -> str:
-        return self._block_id
 
 
 def get_level(block: BlockState) -> int:
