@@ -46,6 +46,22 @@ FRAGILE_BLOCKS: set[str] = {
     "minecraft:big_dripleaf",
     "minecraft:big_dripleaf_stem",
     "minecraft:pointed_dripstone",
+    "minecraft:sculk_vein",
+    "minecraft:tube_coral",
+    "minecraft:brain_coral",
+    "minecraft:bubble_coral",
+    "minecraft:fire_coral",
+    "minecraft:horn_coral",
+    "minecraft:tube_coral_fan",
+    "minecraft:brain_coral_fan",
+    "minecraft:bubble_coral_fan",
+    "minecraft:fire_coral_fan",
+    "minecraft:horn_coral_fan",
+    "minecraft:tube_coral_wall_fan",
+    "minecraft:brain_coral_wall_fan",
+    "minecraft:bubble_coral_wall_fan",
+    "minecraft:fire_coral_wall_fan",
+    "minecraft:horn_coral_wall_fan",
 }
 
 AIRLIKE: set[str]
