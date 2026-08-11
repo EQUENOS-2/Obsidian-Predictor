@@ -39,6 +39,31 @@ TOUGH_BLOCKS: set[str] = {
     "minecraft:respawn_anchor",
 }
 
+LOW_BLAST_RES_TERRAIN: set[str] = {
+    "minecraft:dirt",
+    "minecraft:grass_block",
+    "minecraft:podzol",
+    "minecraft:coarse_dirt",
+    "minecraft:mycelium",
+    "minecraft:rooted_dirt",
+    "minecraft:moss_block",
+    "minecraft:mud",
+    "minecraft:muddy_mangrove_roots",
+    "minecraft:crimson_nylium",
+    "minecraft:warped_nylium",
+    "minecraft:netherrack",
+    "minecraft:sand",
+    "minecraft:red_sand",
+    "minecraft:gravel",
+    "minecraft:soul_sand",
+    "minecraft:soul_soil",
+    "minecraft:calcite",
+    "minecraft:clay",
+    "minecraft:dripstone_block",
+    "minecraft:red_sandstone",
+    "minecraft:sandstone",
+}
+
 FRAGILE_BLOCKS: set[str] = {
     "minecraft:glow_lichen",
     "minecraft:mangrove_leaves",
@@ -68,6 +93,8 @@ AIRLIKE: set[str]
 
 with open(resource_path("airlike_blocks.json"), "r") as fp:
     AIRLIKE = set(json.load(fp))
+
+LOW_BLAST_RES: set[str] = AIRLIKE | LOW_BLAST_RES_TERRAIN
 
 
 class Color(IntEnum):
@@ -343,7 +370,7 @@ class ObsidianPredictor:
             if is_water_source(block):
                 # we will inflate this as if the eater destroyed all surroundings
                 sources.add((x, y, z))
-            elif block.id in AIRLIKE and self.layer_matrix[x, z] < 9:
+            elif block.id in LOW_BLAST_RES and self.layer_matrix[x, z] < 9:
                 # we will inherit the flow from directly above
                 flows.append((x, y, z))
             # bonus check
