@@ -37,6 +37,7 @@ TOUGH_BLOCKS: set[str] = {
     "minecraft:netherite_block",
     "minecraft:heavy_core",
     "minecraft:respawn_anchor",
+    "minecraft:creaking_heart",
 }
 
 LOW_BLAST_RES_TERRAIN: set[str] = {
